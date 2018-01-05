@@ -1,13 +1,24 @@
+const fs = require("fs");
+const https = require("https");
+const mkdirp = require("mkdirp");
 const puppeteer = require("puppeteer");
-const url = "https://frontendmasters.com";
-const course = process.argv[2];
+
 const user = process.argv[3];
 const pass = process.argv[4];
+const course = process.argv[2];
+const pathDirectory = process.argv[5] || "DownLoads/";
+const url = "https://frontendmasters.com";
 
 if (!course || !user || !pass) {
   process.stderr.write("you must provide course, username and your password");
   return;
 }
+
+const directory = pathDirectory + course;
+
+mkdirp(directory, function(err) {
+  if (err) console.error(err);
+});
 
 (async () => {
   const browser = await puppeteer.launch({ headless: false });
@@ -39,15 +50,31 @@ if (!course || !user || !pass) {
   await page.goto(link);
   selector = ".LessonListItem a";
   await page.waitForSelector(selector);
-
-  link = await page.evaluate(selector => {
+  const links = await page.evaluate(selector => {
     const anchors = Array.from(document.querySelectorAll(selector));
-    return anchors
-      .map(anchor => {
-        return `${anchor.href}`;
-      })
-      .shift();
+    return anchors.map(anchor => {
+      return `${anchor.href}`;
+    });
   }, selector);
-  console.log(link);
-  await page.goto(link);
+
+  console.log(links);
+  for (link of links) {
+    await page.goto(link);
+    selector = "video";
+    await page.waitForSelector(selector);
+    await page.waitFor(4000);
+    const videoLink = await page.evaluate(selector => {
+      const video = Array.from(document.querySelectorAll(selector)).pop();
+      return video.src;
+    }, selector);
+    console.log("Video", link);
+    const fileName =
+      link
+        .split("/")
+        .filter(str => str.length)
+        .pop() + ".mp4";
+    https.get(videoLink, req =>
+      req.pipe(fs.createWriteStream(directory + "/" + fileName))
+    );
+  }
 })();
