@@ -1,3 +1,5 @@
+"use strict";
+
 const fs = require("fs");
 const https = require("https");
 const mkdirp = require("mkdirp");
@@ -21,6 +23,9 @@ mkdirp(directory, function(err) {
 });
 
 (async () => {
+  /* TODO: the default mode is headless: true but, it simply don't work
+   * Need to understand why
+   */
   const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
   await page.goto(url + "/login");
