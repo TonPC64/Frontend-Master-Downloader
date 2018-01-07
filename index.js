@@ -3,13 +3,16 @@
 const fs = require("fs");
 const https = require("https");
 const mkdirp = require("mkdirp");
+const through = require("through2");
 const puppeteer = require("puppeteer");
+const fromArray = require("from2-array");
 
 const user = process.argv[3];
 const pass = process.argv[4];
 const course = process.argv[2];
 const pathDirectory = process.argv[5] || "DownLoads/";
 const url = "https://frontendmasters.com";
+const SECONDES = 1000;
 
 if (!course || !user || !pass) {
   process.stderr.write("you must provide course, username and your password");
@@ -30,6 +33,9 @@ mkdirp(directory, function(err) {
   const page = await browser.newPage();
   await page.goto(url + "/login");
 
+  await page.waitFor(2 * SECONDES);
+
+  await page.waitForSelector("#username");
   const username = await page.$("#username");
   await username.type(user);
   const password = await page.$("#password");
@@ -61,25 +67,43 @@ mkdirp(directory, function(err) {
       return `${anchor.href}`;
     });
   }, selector);
-
-  console.log(links);
+  const finalLinks = [];
   for (link of links) {
     await page.goto(link);
     selector = "video";
     await page.waitForSelector(selector);
-    await page.waitFor(4000);
+    await page.waitFor(8 * SECONDES);
+
     const videoLink = await page.evaluate(selector => {
       const video = Array.from(document.querySelectorAll(selector)).pop();
       return video.src;
     }, selector);
-    console.log("Video", link);
+
     const fileName =
       link
         .split("/")
         .filter(str => str.length)
         .pop() + ".mp4";
-    https.get(videoLink, req =>
-      req.pipe(fs.createWriteStream(directory + "/" + fileName))
-    );
+    finalLinks.push({ fileName, videoLink });
   }
+
+  console.log("Will start downloading videos");
+  fromArray
+    .obj(finalLinks)
+    .pipe(
+      through.obj(({ fileName, videoLink }, enc, next) => {
+        console.log("Downloading:" + fileName);
+        https.get(videoLink, req =>
+          req.pipe(
+            fs
+              .createWriteStream(directory + "/" + fileName)
+              .on("finish", () => {
+                console.log(fileName + " downloaded");
+                next();
+              })
+          )
+        );
+      })
+    )
+    .on("finish", () => console.log("All video downloaded"));
 })();

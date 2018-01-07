@@ -1,6 +1,8 @@
 {
   "dependencies": {
+    "from2-array": "0.0.4",
     "mkdirp": "^0.5.1",
-    "puppeteer": "^0.13.0"
+    "puppeteer": "^0.13.0",
+    "through2": "^2.0.3"
   }
 }
