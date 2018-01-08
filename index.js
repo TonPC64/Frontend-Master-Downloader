@@ -67,7 +67,7 @@ mkdirp(directory, function(err) {
       return `${anchor.href}`;
     });
   }, selector);
-  const finalLinks = [];
+  let finalLinks = [];
   for (link of links) {
     await page.goto(link);
     selector = "video";
@@ -88,22 +88,42 @@ mkdirp(directory, function(err) {
   }
 
   console.log("Will start downloading videos");
-  fromArray
-    .obj(finalLinks)
-    .pipe(
-      through.obj(({ fileName, videoLink }, enc, next) => {
-        console.log("Downloading:" + fileName);
-        https.get(videoLink, req =>
-          req.pipe(
-            fs
-              .createWriteStream(directory + "/" + fileName)
-              .on("finish", () => {
-                console.log(fileName + " downloaded");
-                next();
-              })
-          )
-        );
-      })
-    )
-    .on("finish", () => console.log("All video downloaded"));
+
+  finalLinks = removeAlreadyFetched(finalLinks);
+  downloadVideos(finalLinks);
+
+  function downloadVideos(arrLinks) {
+    fromArray
+      .obj(arrLinks)
+      .pipe(
+        through.obj(({ fileName, videoLink }, enc, next) => {
+          console.log("Downloading:" + fileName);
+          https.get(videoLink, req =>
+            req.pipe(
+              fs
+                .createWriteStream(directory + "/" + fileName)
+                .on("finish", () => {
+                  console.log(fileName + " downloaded");
+                  next();
+                })
+            )
+          );
+        })
+      )
+      .on("finish", () => console.log("All video downloaded"));
+  }
+
+  process.on("uncaughtException", err => {
+    console.log("You have reached maximum request limit");
+    console.log("Sleeping for 15 minutes");
+    finalLinks = removeAlreadyFetched(finalLinks);
+    setTimeout(() => downloadVideos(finalLinks), SECONDES * 60 * 15);
+  });
+
+  function removeAlreadyFetched(arrLinks) {
+    const alreadyFetched = fs.readdirSync(directory).map(file => file);
+    return arrLinks.filter(
+      ({ fileName }) => !alreadyFetched.includes(fileName)
+    );
+  }
 })();
