@@ -3,7 +3,7 @@
 const fs = require("fs");
 const https = require("https");
 const mkdirp = require("mkdirp");
-const through = require("through2");
+const throughParallel = require("through2-parallel");
 const puppeteer = require("puppeteer");
 const fromArray = require("from2-array");
 
@@ -96,19 +96,22 @@ mkdirp(directory, function(err) {
     fromArray
       .obj(arrLinks)
       .pipe(
-        through.obj(({ fileName, videoLink }, enc, next) => {
-          console.log("Downloading:" + fileName);
-          https.get(videoLink, req =>
-            req.pipe(
-              fs
-                .createWriteStream(directory + "/" + fileName)
-                .on("finish", () => {
-                  console.log(fileName + " downloaded");
-                  next();
-                })
-            )
-          );
-        })
+        throughParallel.obj(
+          { concurrency: 3 },
+          ({ fileName, videoLink }, enc, next) => {
+            console.log("Downloading:" + fileName);
+            https.get(videoLink, req =>
+              req.pipe(
+                fs
+                  .createWriteStream(directory + "/" + fileName)
+                  .on("finish", () => {
+                    console.log(fileName + " downloaded");
+                    next();
+                  })
+              )
+            );
+          }
+        )
       )
       .on("finish", () => console.log("All video downloaded"));
   }
@@ -119,7 +122,6 @@ mkdirp(directory, function(err) {
     finalLinks = removeAlreadyFetched(finalLinks);
     setTimeout(() => downloadVideos(finalLinks), SECONDES * 60 * 15);
   });
-
   function removeAlreadyFetched(arrLinks) {
     const alreadyFetched = fs.readdirSync(directory).map(file => file);
     return arrLinks.filter(
