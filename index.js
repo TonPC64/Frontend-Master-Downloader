@@ -100,23 +100,16 @@ mkdirp(directory, function(err) {
           { concurrency: 3 },
           ({ fileName, videoLink }, enc, next) => {
             console.log("Downloading:" + fileName);
-            https.get(videoLink, req =>
-              req.pipe(
-                fs
-                  .createWriteStream(directory + "/" + fileName)
-                  .on("finish", () => {
-                    console.log(fileName + " downloaded");
-                    next();
-                  })
-              )
-            );
+            https.get(videoLink, req => next(req));
           }
         )
       )
+      .pipe(fs.createWriteStream(directory + "/" + arrLinks.shift().fileName))
       .on("finish", () => console.log("All video downloaded"));
   }
 
   process.on("uncaughtException", err => {
+    console.log(err);
     console.log("You have reached maximum request limit");
     console.log("Sleeping for 15 minutes");
     finalLinks = removeAlreadyFetched(finalLinks);
