@@ -9,8 +9,9 @@ const fromArray = require("from2-array");
 
 const user = process.argv[3];
 const pass = process.argv[4];
+const hd = process.argv[5];
 const course = process.argv[2];
-const pathDirectory = process.argv[5] || "DownLoads/";
+const pathDirectory = process.argv[6] || "DownLoads/";
 const url = "https://frontendmasters.com";
 const SECONDES = 1000;
 
@@ -71,9 +72,18 @@ mkdirp(directory, function(err) {
   for (link of links) {
     await page.goto(link);
     selector = "video";
-    await page.waitForSelector(selector);
-    await page.waitFor(8 * SECONDES);
 
+    if (hd) {
+      console.log("JE SUIS DANS HD");
+      await page.waitForSelector(".fm-vjs-quality li");
+      console.log("PAS VISIBLE4 ????");
+      await page.waitFor(8 * SECONDES);
+      await page.click(".fm-vjs-quality");
+      await page.click(".fm-vjs-quality li");
+    }
+    console.log("JE SUIS SORTIS DE HD");
+
+    await page.waitFor(8 * SECONDES);
     const videoLink = await page.evaluate(selector => {
       const video = Array.from(document.querySelectorAll(selector)).pop();
       return video.src;
@@ -117,6 +127,7 @@ mkdirp(directory, function(err) {
   }
 
   process.on("uncaughtException", err => {
+    console.log(err);
     console.log("You have reached maximum request limit");
     console.log("Sleeping for 15 minutes");
     finalLinks = removeAlreadyFetched(finalLinks);
