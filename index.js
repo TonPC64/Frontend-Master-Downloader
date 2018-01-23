@@ -7,11 +7,12 @@ const throughParallel = require("through2-parallel");
 const puppeteer = require("puppeteer");
 const fromArray = require("from2-array");
 
-const user = process.argv[3];
-const pass = process.argv[4];
-const hd = process.argv[5];
-const course = process.argv[2];
-const pathDirectory = process.argv[6] || "DownLoads/";
+const user = process.argv[2];
+const pass = process.argv[3];
+const course = process.argv[4];
+const courseid = process.argv[5]
+const hd = process.argv[6];
+const pathDirectory = process.argv[7] || "DownLoads/";
 const url = "https://frontendmasters.com";
 const SECONDES = 1000;
 
@@ -69,7 +70,21 @@ mkdirp(directory, function(err) {
     });
   }, selector);
   let finalLinks = [];
-  for (link of links) {
+
+  const newLink = links.map((item, index) => {
+    return {
+      index: index,
+      link: item
+    }
+  })
+
+
+  if (courseid) {
+    const serchLink = `${url}/courses/${course}/${courseid}/`
+
+    const useLink = newLink.filter(item => item.link === serchLink)[0]
+    const index = useLink.index
+    const link = useLink.link
     await page.goto(link);
     selector = "video";
 
@@ -89,41 +104,79 @@ mkdirp(directory, function(err) {
       return video.src;
     }, selector);
 
-    const fileName =
-      link
-        .split("/")
-        .filter(str => str.length)
-        .pop() + ".mp4";
-    finalLinks.push({ fileName, videoLink });
+    const fileName = `${index+1}-` + link.split("/").filter(str => str.length).pop() + ".mp4";
+    try {
+      downloadVideo({ fileName, videoLink })
+    } catch (err) {
+      console.log(err)
+    }
+  } else {
+    for (const templink of newLink.reverse()) {
+      const index = templink.index
+      const link = templink.link
+      await page.goto(link);
+      selector = "video";
+      if (hd) {
+        console.log("I AM IN HD");
+        await page.waitForSelector(".fm-vjs-quality li");
+        console.log("NOT VISIBLE ????");
+        await page.waitFor(8 * SECONDES);
+        await page.click(".fm-vjs-quality");
+        await page.click(".fm-vjs-quality li");
+      }
+      console.log("I AM OUT OF HD");
+      await page.waitFor(8 * SECONDES);
+      const videoLink = await page.evaluate(selector => {
+        const video = Array.from(document.querySelectorAll(selector)).pop();
+        return video.src;
+      }, selector);
+
+      const fileName = `${index+1}-` + link.split("/").filter(str => str.length).pop() + ".mp4";
+      finalLinks.push({ fileName, videoLink });
+      // try {
+      //   downloadVideo({ fileName, videoLink })
+      // } catch (err) {
+      //   console.log(err)
+      // }
+    }
+    console.log("Will start downloading videos");
+
+    finalLinks = removeAlreadyFetched(finalLinks);
+    downloadVideos(finalLinks);
   }
-
-  console.log("Will start downloading videos");
-
-  finalLinks = removeAlreadyFetched(finalLinks);
-  downloadVideos(finalLinks);
 
   function downloadVideos(arrLinks) {
     fromArray
       .obj(arrLinks)
       .pipe(
-        throughParallel.obj(
-          { concurrency: 3 },
-          ({ fileName, videoLink }, enc, next) => {
+        throughParallel.obj({ concurrency: 3 }, ({ fileName, videoLink }, enc, next) => {
             console.log("Downloading:" + fileName);
-            https.get(videoLink, req =>
-              req.pipe(
-                fs
-                  .createWriteStream(directory + "/" + fileName)
-                  .on("finish", () => {
-                    console.log(fileName + " downloaded");
-                    next();
-                  })
-              )
-            );
+              https.get(videoLink, req =>
+                req.pipe(
+                  fs
+                    .createWriteStream(directory + "/" + fileName)
+                    .on("finish", () => {
+                      console.log(fileName + " downloaded");
+                      next();
+                    })
+                )
+              );
           }
         )
       )
       .on("finish", () => console.log("All video downloaded"));
+  }
+
+  function downloadVideo ({fileName, videoLink}) {
+    if (videoLink) {
+      https.get(videoLink, req =>
+        req.pipe(
+          fs.createWriteStream(directory + "/" + fileName).on("finish", () => {
+            console.log(fileName + " downloaded");
+          })
+        )
+      )
+    }
   }
 
   process.on("uncaughtException", err => {
