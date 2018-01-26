@@ -111,7 +111,7 @@ mkdirp(directory, function(err) {
       console.log(err)
     }
   } else {
-    for (const templink of newLink.reverse()) {
+    for (const templink of newLink) {
       const index = templink.index
       const link = templink.link
       await page.goto(link);

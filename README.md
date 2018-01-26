@@ -5,7 +5,7 @@ Scrape frontendmaster with puppeteer (Not fully working for now, just try it for
 
 **Requirements**
 
-- Node Ver.LTS
+- Node v7.6.0 or greater
 - Google Chrome
 - ChromeDriver - WebDriver for Chrome
 
