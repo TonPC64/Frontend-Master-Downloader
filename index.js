@@ -133,16 +133,16 @@ mkdirp(directory, function(err) {
 
       const fileName = `${index+1}-` + link.split("/").filter(str => str.length).pop() + ".mp4";
       finalLinks.push({ fileName, videoLink });
-      // try {
-      //   downloadVideo({ fileName, videoLink })
-      // } catch (err) {
-      //   console.log(err)
-      // }
+      try {
+        downloadVideo({ fileName, videoLink })
+      } catch (err) {
+        console.log(err)
+      }
     }
-    console.log("Will start downloading videos");
+    // console.log("Will start downloading videos");
 
-    finalLinks = removeAlreadyFetched(finalLinks);
-    downloadVideos(finalLinks);
+    // finalLinks = removeAlreadyFetched(finalLinks);
+    // downloadVideos(finalLinks);
   }
 
   function downloadVideos(arrLinks) {
