@@ -6,6 +6,7 @@ const mkdirp = require("mkdirp");
 const throughParallel = require("through2-parallel");
 const puppeteer = require("puppeteer");
 const fromArray = require("from2-array");
+const logSymbols = require('log-symbols');
 
 const user = process.argv[2];
 const pass = process.argv[3];
@@ -111,20 +112,20 @@ mkdirp(directory, function(err) {
       console.log(err)
     }
   } else {
-    for (const templink of newLink) {
+    for (const templink of newLink.reverse()) {
       const index = templink.index
       const link = templink.link
       await page.goto(link);
       selector = "video";
+      var stringhd = "(OUT OF HD)"
       if (hd) {
-        console.log("I AM IN HD");
+        stringhd = "(IN HD)"
         await page.waitForSelector(".fm-vjs-quality li");
         console.log("NOT VISIBLE ????");
         await page.waitFor(8 * SECONDES);
         await page.click(".fm-vjs-quality");
         await page.click(".fm-vjs-quality li");
       }
-      console.log("I AM OUT OF HD");
       await page.waitFor(8 * SECONDES);
       const videoLink = await page.evaluate(selector => {
         const video = Array.from(document.querySelectorAll(selector)).pop();
@@ -133,6 +134,7 @@ mkdirp(directory, function(err) {
 
       const fileName = `${index+1}-` + link.split("/").filter(str => str.length).pop() + ".mp4";
       finalLinks.push({ fileName, videoLink });
+      console.log(fileName, 'starting', stringhd)
       try {
         downloadVideo({ fileName, videoLink })
       } catch (err) {
@@ -156,7 +158,7 @@ mkdirp(directory, function(err) {
                   fs
                     .createWriteStream(directory + "/" + fileName)
                     .on("finish", () => {
-                      console.log(fileName + " downloaded");
+                      console.log(logSymbols.success, fileName);
                       next();
                     })
                 )
@@ -172,7 +174,7 @@ mkdirp(directory, function(err) {
       https.get(videoLink, req =>
         req.pipe(
           fs.createWriteStream(directory + "/" + fileName).on("finish", () => {
-            console.log(fileName + " downloaded");
+            console.log(logSymbols.success, fileName);
           })
         )
       )
